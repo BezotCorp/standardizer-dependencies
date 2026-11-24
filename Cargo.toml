@@ -7,6 +7,12 @@ license = "Apache-2.0"
 repository = "https://github.com/BezotCorp/standardizer-dependencies"
 readme = "README.md"
 publish = true
+include = [
+  "src/**",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+]
 
 [dependencies]
 bincode-next = "3"
