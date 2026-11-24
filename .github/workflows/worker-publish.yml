@@ -1,0 +1,96 @@
+name: Worker Publish
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir package
+
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp "target/${{ matrix.target }}/release/standardizer-dependencies.exe" package/
+          else
+            cp "target/${{ matrix.target }}/release/standardizer-dependencies" package/
+          fi
+
+          cp README.md LICENSE package/
+
+          tar -czf "standardizer-dependencies-${{ matrix.target }}.tar.gz" -C package .
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: standardizer-dependencies-${{ matrix.target }}
+          path: standardizer-dependencies-${{ matrix.target }}.tar.gz
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.BEZOTCORP_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.BEZOTCORP_RELEASE_BOT_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Download release binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish crate and create GitHub release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_ASSETS_DIR: artifacts
+        run: ./scripts/publish-rust-crate.sh standardizer-dependencies "${{ github.repository }}"

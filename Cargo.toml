@@ -2,6 +2,19 @@
 name = "standardizer-dependencies"
 version = "0.1.0"
 edition = "2024"
-publish = false
+description = "Synchronize machine-managed binary dependencies for Standardizer projects"
+license = "Apache-2.0"
+repository = "https://github.com/BezotCorp/standardizer-dependencies"
+readme = "README.md"
+publish = true
 
 [dependencies]
+bincode-next = "3"
+reqwest = { version = "0.13", default-features = false, features = [
+  "blocking",
+  "rustls",
+] }
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+tempfile = "3"
+toml = "1"
